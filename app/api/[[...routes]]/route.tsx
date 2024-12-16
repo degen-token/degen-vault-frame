@@ -12,8 +12,6 @@ const app = new Frog({
 })
 
 app.frame('/', (c) => {
-  const { inputText } = c
-  const amount = inputText || '0'
 
   return c.res({
     image: (
