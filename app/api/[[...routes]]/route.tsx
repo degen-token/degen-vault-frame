@@ -1,6 +1,6 @@
 /** @jsxImportSource frog/jsx */
 
-import { Button, Frog } from 'frog'
+import { Button, Frog, TextInput } from 'frog'
 import { devtools } from 'frog/dev'
 import { handle } from 'frog/next'
 import { serveStatic } from 'frog/serve-static'
@@ -12,7 +12,9 @@ const app = new Frog({
 })
 
 app.frame('/', (c) => {
-  const { status } = c
+  const { inputText } = c
+  const amount = inputText || '0'
+
   return c.res({
     image: (
       <div
@@ -46,18 +48,6 @@ app.frame('/', (c) => {
 
         <div
           style={{
-            background: 'white',
-            padding: '15px 30px',
-            fontSize: 36,
-            borderRadius: '8px',
-            marginBottom: 30,
-          }}
-        >
-          10000
-        </div>
-
-        <div
-          style={{
             color: 'white',
             fontSize: 24,
             marginBottom: 40,
@@ -77,11 +67,12 @@ app.frame('/', (c) => {
             marginTop: 20,
           }}
         >
-          ⚠️ Unlockable funds do not count towards your tip allowance. Use a wallet linked to your Farcaster account.
+          ⚠️ Unlockable funds do not count towards your tip allowance. Use a wallet linked to your Farcaster account. Locked DEGEN cannot be transferred!
         </div>
       </div>
     ),
     intents: [
+      <TextInput placeholder="Enter amount" />,
       <Button value="deposit">Deposit</Button>,
       <Button value="withdraw">Withdraw</Button>,
     ],
