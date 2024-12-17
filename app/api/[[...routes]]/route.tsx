@@ -4,11 +4,14 @@ import { Button, Frog, TextInput } from 'frog'
 import { devtools } from 'frog/dev'
 import { handle } from 'frog/next'
 import { serveStatic } from 'frog/serve-static'
-import { abi } from './abi'
 
-const DEGEN_CONTRACT = "0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed"
-const VAULT_CONTRACT = "0xa8a30E0dafCA4156f28d96cCa5671a0eEcA5E407"  // Replace with your vault contract
+import { abi as degenTokenAbi } from './degenTokenAbi'
+import { abi as vaultAbi } from './vaultAbi'
+
+const DEGEN_TOKEN = "0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed"
+const VAULT_CONTRACT = "0xa8a30E0dafCA4156f28d96cCa5671a0eEcA5E407"
 const CHAIN = "eip155:8453"  // Base mainnet
+const MIN_DEPOSIT = "10000000000000000000000" // 10,000 DEGEN with 18 decimals
 
 const app = new Frog({
   assetsPath: '/',
@@ -16,54 +19,80 @@ const app = new Frog({
   title: 'DEGEN Vault',
 })
 
+// Helper function to convert amount to proper decimals
+const parseAmount = (amount: string) => {
+  try {
+    const value = parseFloat(amount)
+    if (isNaN(value)) return BigInt(0)
+    // Convert to BigInt after multiplying by 1e18
+    return BigInt(Math.floor(value * 1e18))
+  } catch (error) {
+    return BigInt(0)
+  }
+}
+
 // Handle approve transaction
 app.transaction('/approve', (c) => {
   const { inputText } = c
+  
+  if (!inputText) {
+    return c.error({ message: 'Please enter an amount to deposit' })
+  }
 
-  if (!inputText || parseInt(inputText) < 10000) {
+  const amount = parseAmount(inputText)
+  
+  if (amount < BigInt(MIN_DEPOSIT)) {
     return c.error({ message: 'Minimum deposit is 10,000 DEGEN' })
   }
 
   return c.contract({
-    abi,
+    abi: degenTokenAbi,
     chainId: CHAIN,
     functionName: "approve",
-    args: [VAULT_CONTRACT, inputText],
-    to: DEGEN_CONTRACT,
+    args: [VAULT_CONTRACT, amount],
+    to: DEGEN_TOKEN,
   })
 })
 
-// Handle deposit transaction - only after approval
+// Handle deposit transaction
 app.transaction('/deposit', (c) => {
   const { inputText } = c
+  
+  if (!inputText) {
+    return c.error({ message: 'Please enter an amount to deposit' })
+  }
 
-  if (!inputText || parseInt(inputText) < 10000) {
+  const amount = parseAmount(inputText)
+  
+  if (amount < BigInt(MIN_DEPOSIT)) {
     return c.error({ message: 'Minimum deposit is 10,000 DEGEN' })
   }
 
   return c.contract({
-    abi,
+    abi: vaultAbi,
     chainId: CHAIN,
-    functionName: "transfer",
-    args: [VAULT_CONTRACT, inputText],
-    to: DEGEN_CONTRACT,
+    functionName: "deposit",
+    args: [amount],
+    to: VAULT_CONTRACT,
   })
 })
 
 // Handle withdraw transaction
 app.transaction('/withdraw', (c) => {
-  const { address, inputText } = c
+  const { inputText, address } = c
 
   if (!inputText) {
     return c.error({ message: 'Please enter an amount to withdraw' })
   }
 
+  const amount = parseAmount(inputText)
+
   return c.contract({
-    abi,
+    abi: vaultAbi,
     chainId: CHAIN,
-    functionName: "transferFrom",
-    args: [VAULT_CONTRACT, address, inputText],
-    to: DEGEN_CONTRACT,
+    functionName: "withdraw",
+    args: [amount],
+    to: VAULT_CONTRACT,
   })
 })
 
@@ -125,7 +154,7 @@ app.frame('/', (c) => {
       </div>
     ),
     intents: [
-      <TextInput placeholder="Enter amount" />,
+      <TextInput placeholder="Enter amount of DEGEN" />,
       <Button.Transaction target="/approve">1. Approve</Button.Transaction>,
       <Button.Transaction target="/deposit">2. Deposit</Button.Transaction>,
       <Button.Transaction target="/withdraw">Withdraw</Button.Transaction>,
