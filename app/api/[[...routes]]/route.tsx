@@ -4,6 +4,11 @@ import { Button, Frog, TextInput } from 'frog'
 import { devtools } from 'frog/dev'
 import { handle } from 'frog/next'
 import { serveStatic } from 'frog/serve-static'
+import { abi } from './abi'
+
+const DEGEN_CONTRACT = "0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed"
+const VAULT_CONTRACT = "0xa8a30E0dafCA4156f28d96cCa5671a0eEcA5E407"  // Replace with your vault contract
+const CHAIN = "eip155:8453"  // Base mainnet
 
 const app = new Frog({
   assetsPath: '/',
@@ -11,8 +16,58 @@ const app = new Frog({
   title: 'DEGEN Vault',
 })
 
-app.frame('/', (c) => {
+// Handle approve transaction
+app.transaction('/approve', (c) => {
+  const { inputText } = c
 
+  if (!inputText || parseInt(inputText) < 10000) {
+    return c.error({ message: 'Minimum deposit is 10,000 DEGEN' })
+  }
+
+  return c.contract({
+    abi,
+    chainId: CHAIN,
+    functionName: "approve",
+    args: [VAULT_CONTRACT, inputText],
+    to: DEGEN_CONTRACT,
+  })
+})
+
+// Handle deposit transaction - only after approval
+app.transaction('/deposit', (c) => {
+  const { inputText } = c
+
+  if (!inputText || parseInt(inputText) < 10000) {
+    return c.error({ message: 'Minimum deposit is 10,000 DEGEN' })
+  }
+
+  return c.contract({
+    abi,
+    chainId: CHAIN,
+    functionName: "transfer",
+    args: [VAULT_CONTRACT, inputText],
+    to: DEGEN_CONTRACT,
+  })
+})
+
+// Handle withdraw transaction
+app.transaction('/withdraw', (c) => {
+  const { address, inputText } = c
+
+  if (!inputText) {
+    return c.error({ message: 'Please enter an amount to withdraw' })
+  }
+
+  return c.contract({
+    abi,
+    chainId: CHAIN,
+    functionName: "transferFrom",
+    args: [VAULT_CONTRACT, address, inputText],
+    to: DEGEN_CONTRACT,
+  })
+})
+
+app.frame('/', (c) => {
   return c.res({
     image: (
       <div
@@ -71,8 +126,9 @@ app.frame('/', (c) => {
     ),
     intents: [
       <TextInput placeholder="Enter amount" />,
-      <Button value="deposit">Deposit</Button>,
-      <Button value="withdraw">Withdraw</Button>,
+      <Button.Transaction target="/approve">1. Approve</Button.Transaction>,
+      <Button.Transaction target="/deposit">2. Deposit</Button.Transaction>,
+      <Button.Transaction target="/withdraw">Withdraw</Button.Transaction>,
     ],
   })
 })
